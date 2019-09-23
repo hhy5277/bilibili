@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+</head>
+
+<body>
+    <div id="app">
+        <!-- 双向数据绑定 靠的是表单-->
+        <input type="text" zf-model="msg">
+        <input type="text" zf-model="name"> {{msg}}{{name}}
+        <div>{{name}}</div>
+    </div>
+
+    <script type="text/javascript">
+    //Object.defineProperty
+    //Vue中的实现双向数据绑定 1.模板的编译 2.数据劫持  观察数据变化
+    //不要直接操作节点，可能导致页面的回流 性能低  我们要使用文档碎片 放到内存中
+    //将数据和节点挂载在一起
+    function ViewModel(data) {
+        this.data = data; //代表当前的值
+        this.nodes = []; //放节点的盒子
+    }
+    ViewModel.prototype.bindNode = function(node) { //将数据和节点绑定在一起
+        this.nodes.push(node);
+        console.log(this.nodes);
+    }
+    ViewModel.prototype.update = function(node) { //将数据和节点绑定在一起
+        this.nodes.forEach(node => {
+            if (node.nodeType === 1) {
+                node.value = this.data;
+            } else {
+                node.textContent = node.my.replace(/\{\{([^}]*)\}\}/g, function() {
+                    return obj[arguments[1]].data;
+                })
+            }
+        })
+    }
+    ViewModel.prototype.getVal = function() { //将数据和节点绑定在一起
+        return this.data;
+    }
+    ViewModel.prototype.setVal = function(newVal) { //将数据和节点绑定在一起
+        if (newVal != this.data) {
+            this.data = newVal;
+            this.update();
+        }
+    }
+    let obj = {
+        msg: new ViewModel("欢迎您"),
+        name: new ViewModel("姜文")
+    };
+
+    function compile() {
+        let ele = document.querySelector('#app');
+        let fragment = document.createDocumentFragment();
+        let child;
+        while (child = ele.firstChild) {
+            fragment.appendChild(child);
+        }
+        //todo 这里操作不会导致页面回流 
+        function replace(fragment) { //用来递归判断是否有我们想要的标签
+
+            //nodeList 类似数组  Array.prototype.slice.call
+            Array.from(fragment.childNodes).forEach(node => {
+                if (node.nodeType == 1) { //元素节点
+                    //type = "text" zf-model="a"
+                    Array.from(node.attributes).forEach(attr => {
+                        let {
+                            name, value
+                        } = attr; //zf-model="name"
+                        if (name.includes('zf-')) { //input
+                            // console.log(node);
+                            obj[value].bindNode(node);
+                            node.addEventListener('input', function(e) {
+                                obj[value].setVal(e.target.value);
+                            })
+                        }
+                    })
+                }
+                let reg = /\{\{([^}]*)\}\}/g; //判断当前有没有{{}}
+                let text = node.textContent;
+                if (node.nodeType == 3 && reg.test(text)) { //文本节点  {{msg}}{{name}}
+                    // console.log(node)
+                    // 自定义属性 保留原有的内容
+                    node.my = text;
+                    text.replace(reg, function() {
+                        // console.log(arguments)
+                        obj[arguments[1]].bindNode(node);
+                    })
+                }
+                if (node.childNodes.length) {
+                    replace(node); //如果有嵌套关系 继续查找
+                }
+            })
+        }
+        replace(fragment); //编译后要调用update方法
+        Object.keys(obj).forEach(key => {
+            obj[key].update();
+        })
+        ele.appendChild(fragment);
+    }
+    compile('#app');
+
+
+
+    document.addEventListener('visibilitychange', function() { //浏览器切换事件
+        if (document.visibilityState == 'hidden') { //状态判断
+            //normal_title=document.title;
+            document.title = '点这里';
+        } else {
+            document.title = '听闻青春！';
+        }
+    })
+
+    //一个判断页面是否真的关闭和刷新的好方法：
+    window.οnbefοreunlοad = function() {
+        alert("===οnbefοreunlοad===");
+        if (event.clientX > document.body.clientWidth && event.clientY < 0 || event.altKey) {
+            alert("你关闭了浏览器");
+        } else {
+            alert("你正在刷新页面");
+        }
+    }
+
+    window.onbeforeunload = function() {
+        // event.returnValue="确定离开当前页面吗？";
+        //  这是用来设定一个时间, 时间到了, 就会执行一个指定的 method。
+        setTimeout(onunloadcancel, 10);
+        return "真的离开?";
+    }
+
+    window.onunloadcancel = function() {
+        alert("取消离开");
+    }
+    </script>
+</body>
+
+</html>
